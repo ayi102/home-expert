@@ -62,7 +62,7 @@ fun PrayerCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { AdhanPlayer.play(context) },
+            .clickable { AdhanPlayer.play(context, isFajr = next.name == PrayerName.FAJR) },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),

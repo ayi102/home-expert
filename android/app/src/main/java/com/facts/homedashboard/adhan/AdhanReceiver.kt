@@ -10,7 +10,8 @@ import android.content.Intent
  */
 class AdhanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        AdhanPlayer.play(context)
+        val isFajr = intent.getStringExtra(AdhanScheduler.EXTRA_PRAYER) == "FAJR"
+        AdhanPlayer.play(context, isFajr)
         AdhanScheduler.scheduleNext(context)
     }
 }

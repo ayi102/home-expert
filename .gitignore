@@ -20,3 +20,6 @@ android/captures/
 *.local
 google-services.json
 .env
+
+# Adhan audio: fetched at setup, not redistributed via the repo (see docs/ADHAN_AUDIO.md)
+android/app/src/main/res/raw/*.mp3

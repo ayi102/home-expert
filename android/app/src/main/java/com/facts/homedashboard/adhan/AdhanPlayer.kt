@@ -15,10 +15,15 @@ object AdhanPlayer {
     @Volatile
     private var player: MediaPlayer? = null
 
-    fun play(context: Context) {
+    fun play(context: Context, isFajr: Boolean = false) {
         stop()
         val ctx = context.applicationContext
-        val resId = ctx.resources.getIdentifier("adhan", "raw", ctx.packageName)
+        // Fajr uses the dawn adhan (adhan_fajr); everything else uses adhan.
+        // Fall back to the standard adhan, then to the default alarm sound.
+        val resId = ctx.resources.run {
+            val fajr = if (isFajr) getIdentifier("adhan_fajr", "raw", ctx.packageName) else 0
+            if (fajr != 0) fajr else getIdentifier("adhan", "raw", ctx.packageName)
+        }
 
         val mp = MediaPlayer()
         // Attributes must be set before prepare so the adhan plays on the alarm
