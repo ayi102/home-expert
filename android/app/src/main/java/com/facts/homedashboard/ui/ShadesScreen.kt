@@ -181,11 +181,17 @@ private fun ControlBlock(
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         Button(onClick = onLeft, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BtnBg)) { Text(leftText, fontSize = 17.sp) }
+            colors = ButtonDefaults.buttonColors(containerColor = BtnBg, contentColor = Color.White)) {
+            Text(leftText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        }
         Button(onClick = onMid, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BtnBg)) { Text(midText, fontSize = 17.sp) }
+            colors = ButtonDefaults.buttonColors(containerColor = BtnBg, contentColor = Color.White)) {
+            Text(midText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        }
         Button(onClick = onRight, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ShadeAccent)) { Text(rightText, fontSize = 17.sp, color = Color(0xFF10131A)) }
+            colors = ButtonDefaults.buttonColors(containerColor = ShadeAccent, contentColor = Color(0xFF10131A))) {
+            Text(rightText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
     }
     Slider(
         value = slider, onValueChange = onSlider, onValueChangeFinished = onSliderDone,
