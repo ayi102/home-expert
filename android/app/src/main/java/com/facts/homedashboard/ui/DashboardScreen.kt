@@ -68,19 +68,24 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private enum class Screen { HOME, LIGHTS }
+private enum class Screen { HOME, LIGHTS, WEATHER }
 
 @Composable
 fun DashboardScreen(modifier: Modifier = Modifier) {
     var screen by remember { mutableStateOf(Screen.HOME) }
     when (screen) {
         Screen.LIGHTS -> LightsScreen(onBack = { screen = Screen.HOME }, modifier = modifier)
-        Screen.HOME -> HomeContent(modifier = modifier, onOpenLights = { screen = Screen.LIGHTS })
+        Screen.WEATHER -> WeatherScreen(onBack = { screen = Screen.HOME }, modifier = modifier)
+        Screen.HOME -> HomeContent(
+            modifier = modifier,
+            onOpenLights = { screen = Screen.LIGHTS },
+            onOpenWeather = { screen = Screen.WEATHER },
+        )
     }
 }
 
 @Composable
-private fun HomeContent(modifier: Modifier, onOpenLights: () -> Unit) {
+private fun HomeContent(modifier: Modifier, onOpenLights: () -> Unit, onOpenWeather: () -> Unit) {
     val now by rememberClock()
     val settings = rememberPrayerSettings()
     val context = LocalContext.current
@@ -125,6 +130,7 @@ private fun HomeContent(modifier: Modifier, onOpenLights: () -> Unit) {
             onClickFor = { tile ->
                 when (tile.title) {
                     "Lights" -> onOpenLights
+                    "Weather" -> onOpenWeather
                     "YouTube" -> ({ AppLauncher.launchOrNotify(context, "com.google.android.youtube", "YouTube") })
                     "Netflix" -> ({ AppLauncher.launchOrNotify(context, "com.netflix.mediaclient", "Netflix") })
                     else -> null
@@ -236,12 +242,23 @@ private fun ClockHeader(now: LocalDateTime, onMaintenance: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            text = "Home",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary,
+        // Brand (long-press for Maintenance).
+        Column(
+            horizontalAlignment = Alignment.End,
             modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onMaintenance),
-        )
+        ) {
+            Text(
+                text = "home-expert",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = "by Ali Ismail",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
