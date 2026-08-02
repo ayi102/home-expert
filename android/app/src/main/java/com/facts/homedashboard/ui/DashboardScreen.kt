@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Blinds
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Lightbulb
@@ -74,7 +75,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private enum class Screen { HOME, LIGHTS, WEATHER }
+private enum class Screen { HOME, LIGHTS, WEATHER, SHADES }
 
 @Composable
 fun DashboardScreen(modifier: Modifier = Modifier) {
@@ -82,16 +83,23 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
     when (screen) {
         Screen.LIGHTS -> LightsScreen(onBack = { screen = Screen.HOME }, modifier = modifier)
         Screen.WEATHER -> WeatherScreen(onBack = { screen = Screen.HOME }, modifier = modifier)
+        Screen.SHADES -> ShadesScreen(onBack = { screen = Screen.HOME }, modifier = modifier)
         Screen.HOME -> HomeContent(
             modifier = modifier,
             onOpenLights = { screen = Screen.LIGHTS },
             onOpenWeather = { screen = Screen.WEATHER },
+            onOpenShades = { screen = Screen.SHADES },
         )
     }
 }
 
 @Composable
-private fun HomeContent(modifier: Modifier, onOpenLights: () -> Unit, onOpenWeather: () -> Unit) {
+private fun HomeContent(
+    modifier: Modifier,
+    onOpenLights: () -> Unit,
+    onOpenWeather: () -> Unit,
+    onOpenShades: () -> Unit,
+) {
     val now by rememberClock()
     val settings = rememberPrayerSettings()
     val context = LocalContext.current
@@ -136,6 +144,7 @@ private fun HomeContent(modifier: Modifier, onOpenLights: () -> Unit, onOpenWeat
             onClickFor = { tile ->
                 when (tile.title) {
                     "Lights" -> onOpenLights
+                    "Shades" -> onOpenShades
                     "Weather" -> onOpenWeather
                     "YouTube" -> ({ AppLauncher.launchOrNotify(context, "com.google.android.youtube", "YouTube") })
                     "Netflix" -> ({ AppLauncher.launchOrNotify(context, "com.netflix.mediaclient", "Netflix") })
@@ -196,7 +205,7 @@ private fun FeatureTile(tile: Tile, onClick: (() -> Unit)?, modifier: Modifier =
                         )
                     )
                 )
-                .padding(22.dp)
+                .padding(18.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -204,8 +213,8 @@ private fun FeatureTile(tile: Tile, onClick: (() -> Unit)?, modifier: Modifier =
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(tile.accent.copy(alpha = 0.22f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -214,12 +223,13 @@ private fun FeatureTile(tile: Tile, onClick: (() -> Unit)?, modifier: Modifier =
                 Column {
                     Text(
                         tile.title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
                     )
                     Text(
                         if (enabled) "Open" else "Coming soon",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = if (enabled) tile.accent
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -362,6 +372,7 @@ private data class Tile(val title: String, val icon: ImageVector, val accent: Co
 
 private val dashboardTiles = listOf(
     Tile("Lights", Icons.Filled.Lightbulb, Color(0xFFFFC24B)),
+    Tile("Shades", Icons.Filled.Blinds, Color(0xFF8C9EFF)),
     Tile("YouTube", Icons.Filled.SmartDisplay, Color(0xFFFF5252)),
     Tile("Netflix", Icons.Filled.Movie, Color(0xFFE50914)),
     Tile("Weather", Icons.Filled.WbSunny, Color(0xFF4FC3F7)),
