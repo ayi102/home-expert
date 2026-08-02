@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.facts.homedashboard.shade.ShadeClient
 import com.facts.homedashboard.shade.ShadeState
 import com.facts.homedashboard.shade.ShadeStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val ShadeAccent = Color(0xFF8C9EFF)
@@ -59,6 +62,8 @@ fun ShadesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf<String?>(null) }
     var rail by remember { mutableFloatStateOf(0f) }
     var flap by remember { mutableFloatStateOf(50f) }
+    var moving by remember { mutableStateOf(false) }
+    var movingLabel by remember { mutableStateOf("") }
 
     suspend fun resolveHost(): Pair<String, Int>? {
         ShadeStore.load(context)?.let { return it }
@@ -85,16 +90,30 @@ fun ShadesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    fun moveRail(bottom: Int) {
+    // Send a command, show a "moving" indicator, then re-read the real state.
+    fun send(label: String, bottom: Int, middle: Int) {
         val s = state ?: return
-        rail = bottom.toFloat(); state = s.copy(bottom = bottom)
-        scope.launch { runCatching { ShadeClient.setPosition(s, bottom, s.middle) } }
+        rail = bottom.toFloat(); flap = middle.toFloat()
+        state = s.copy(bottom = bottom, middle = middle)
+        movingLabel = label; moving = true
+        scope.launch {
+            runCatching { ShadeClient.setPosition(s, bottom, middle) }
+            delay(6000)
+            runCatching {
+                val st = ShadeClient.status(s.host, s.port)
+                state = st; rail = st.bottom.toFloat(); flap = st.middle.toFloat()
+            }
+            moving = false
+        }
     }
 
+    fun moveRail(bottom: Int) {
+        val s = state ?: return
+        send(if (bottom == 0) "Closing…" else if (bottom == 100) "Opening…" else "Moving to $bottom%…", bottom, s.middle)
+    }
     fun moveFlap(middle: Int) {
         val s = state ?: return
-        flap = middle.toFloat(); state = s.copy(middle = middle)
-        scope.launch { runCatching { ShadeClient.setPosition(s, s.bottom, middle) } }
+        send(if (middle == 0) "Closing flaps…" else if (middle == 100) "Opening flaps…" else "Tilting flaps…", s.bottom, middle)
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -137,29 +156,33 @@ fun ShadesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         .background(Brush.verticalGradient(listOf(ShadeAccent.copy(alpha = 0.22f), Color(0xFF161B22))))
                         .padding(30.dp),
                 ) {
-                    Text(
-                        when (rail.toInt()) { 100 -> "Open"; 0 -> "Closed"; else -> "${rail.toInt()}% open" },
-                        fontSize = 42.sp, fontWeight = FontWeight.Bold,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            when (rail.toInt()) { 100 -> "Open"; 0 -> "Closed"; else -> "${rail.toInt()}% open" },
+                            fontSize = 42.sp, fontWeight = FontWeight.Bold,
+                        )
+                        if (moving) {
+                            Spacer(Modifier.width(18.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 3.dp,
+                                color = ShadeAccent,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(movingLabel, style = MaterialTheme.typography.titleMedium, color = ShadeAccent)
+                        }
+                    }
                     Text("Living room shade", style = MaterialTheme.typography.titleMedium, color = ShadeAccent)
 
-                    // Shade height
                     ControlBlock(
-                        label = "Shade",
-                        leftText = "Close", onLeft = { moveRail(0) },
-                        midText = "50%", onMid = { moveRail(50) },
-                        rightText = "Open", onRight = { moveRail(100) },
+                        label = "Shade", selected = rail.toInt(),
+                        onClose = { moveRail(0) }, onHalf = { moveRail(50) }, onOpen = { moveRail(100) },
                         slider = rail, onSlider = { rail = it }, onSliderDone = { moveRail(rail.toInt()) },
-                        endLabels = "Closed" to "Open",
                     )
-                    // Flap tilt
                     ControlBlock(
-                        label = "Flaps",
-                        leftText = "Close", onLeft = { moveFlap(0) },
-                        midText = "50%", onMid = { moveFlap(50) },
-                        rightText = "Open", onRight = { moveFlap(100) },
+                        label = "Flaps", selected = flap.toInt(),
+                        onClose = { moveFlap(0) }, onHalf = { moveFlap(50) }, onOpen = { moveFlap(100) },
                         slider = flap, onSlider = { flap = it }, onSliderDone = { moveFlap(flap.toInt()) },
-                        endLabels = "Closed" to "Open",
                     )
                 }
             }
@@ -170,28 +193,21 @@ fun ShadesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 private fun ControlBlock(
     label: String,
-    leftText: String, onLeft: () -> Unit,
-    midText: String, onMid: () -> Unit,
-    rightText: String, onRight: () -> Unit,
-    slider: Float, onSlider: (Float) -> Unit, onSliderDone: () -> Unit,
-    endLabels: Pair<String, String>,
+    selected: Int,
+    onClose: () -> Unit,
+    onHalf: () -> Unit,
+    onOpen: () -> Unit,
+    slider: Float,
+    onSlider: (Float) -> Unit,
+    onSliderDone: () -> Unit,
 ) {
     Spacer(Modifier.height(24.dp))
     Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-        Button(onClick = onLeft, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BtnBg, contentColor = Color.White)) {
-            Text(leftText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Button(onClick = onMid, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BtnBg, contentColor = Color.White)) {
-            Text(midText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Button(onClick = onRight, modifier = Modifier.weight(1f).height(58.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ShadeAccent, contentColor = Color(0xFF10131A))) {
-            Text(rightText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        Preset("Close", active = selected == 0, onClick = onClose)
+        Preset("50%", active = selected == 50, onClick = onHalf)
+        Preset("Open", active = selected == 100, onClick = onOpen)
     }
     Slider(
         value = slider, onValueChange = onSlider, onValueChangeFinished = onSliderDone,
@@ -199,7 +215,19 @@ private fun ControlBlock(
         colors = SliderDefaults.colors(thumbColor = ShadeAccent, activeTrackColor = ShadeAccent),
     )
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(endLabels.first, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(endLabels.second, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Closed", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Open", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun RowScope.Preset(text: String, active: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.weight(1f).height(58.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (active) ShadeAccent else BtnBg,
+            contentColor = if (active) Color(0xFF10131A) else Color.White,
+        ),
+    ) { Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
 }
