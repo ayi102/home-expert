@@ -7,9 +7,12 @@ import android.content.ContextWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,12 +50,15 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.facts.homedashboard.adhan.AdhanScheduler
@@ -226,12 +232,8 @@ private fun FeatureTile(tile: Tile, onClick: (() -> Unit)?, modifier: Modifier =
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ClockHeader(now: LocalDateTime, onMaintenance: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.align(Alignment.CenterStart)) {
             Text(
                 text = now.format(TIME_FMT).lowercase(Locale.getDefault()),
                 style = MaterialTheme.typography.displayLarge
@@ -242,13 +244,37 @@ private fun ClockHeader(now: LocalDateTime, onMaintenance: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        // Creator photo, centered — showcases home-expert's creator. Loaded by
+        // name at runtime so the build still works if the (git-ignored) photo
+        // isn't present. Drop res/drawable-nodpi/creator.png to show it.
+        val context = LocalContext.current
+        val creatorRes = remember {
+            context.resources.getIdentifier("creator", "drawable", context.packageName)
+        }
+        if (creatorRes != 0) {
+            Image(
+                painter = painterResource(creatorRes),
+                contentDescription = "Creator",
+                contentScale = ContentScale.Crop,
+                alignment = BiasAlignment(0f, -0.3f),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(104.dp)
+                    .clip(CircleShape)
+                    .border(3.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), CircleShape),
+            )
+        }
+
         // Brand (long-press for Maintenance).
         Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .combinedClickable(onClick = {}, onLongClick = onMaintenance),
             horizontalAlignment = Alignment.End,
-            modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onMaintenance),
         ) {
             Text(
-                text = "home-expert",
+                text = "Home Expert",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,

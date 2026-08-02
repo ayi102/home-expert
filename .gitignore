@@ -23,3 +23,6 @@ google-services.json
 
 # Adhan audio: fetched at setup, not redistributed via the repo (see docs/ADHAN_AUDIO.md)
 android/app/src/main/res/raw/*.mp3
+
+# Personal creator photo (kept out of the public repo; bundled locally)
+android/app/src/main/res/drawable-nodpi/creator.png
