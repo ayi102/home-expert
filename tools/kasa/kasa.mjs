@@ -11,9 +11,34 @@
 
 import net from 'node:net';
 import dgram from 'node:dgram';
+import os from 'node:os';
 
 const PORT = 9999;
 const INITIAL_KEY = 0xab; // 171
+
+// ---- IPv4 helpers (for subnet-directed broadcast) --------------------------
+export function ipToInt(ip) {
+  return ip.split('.').reduce((acc, o) => ((acc << 8) + Number(o)) >>> 0, 0) >>> 0;
+}
+export function intToIp(n) {
+  return [24, 16, 8, 0].map((s) => (n >>> s) & 0xff).join('.');
+}
+export function broadcastAddr(ip, netmask) {
+  return intToIp((ipToInt(ip) | (~ipToInt(netmask) >>> 0)) >>> 0);
+}
+
+/** Directed broadcast address for every non-internal IPv4 interface. */
+export function localBroadcasts() {
+  const out = new Set();
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const a of addrs || []) {
+      if (a.family === 'IPv4' && !a.internal && a.netmask) {
+        out.add(broadcastAddr(a.address, a.netmask));
+      }
+    }
+  }
+  return [...out];
+}
 
 // ---- Autokey XOR cipher ----------------------------------------------------
 export function encrypt(text) {
@@ -76,8 +101,14 @@ export function send(ip, command, { timeout = 4000 } = {}) {
   });
 }
 
-/** UDP broadcast discovery. Resolves a list of {ip, alias, model, type, state}. */
-export function discover({ timeout = 3000, broadcast = '255.255.255.255' } = {}) {
+/**
+ * UDP discovery. Sends the query to each interface's subnet-directed broadcast
+ * (plus global 255.255.255.255) so it still works when the default route is a
+ * VPN/PPP link. Pass `targets` to scan specific addresses. Resolves a list of
+ * {ip, alias, model, type, state}.
+ */
+export function discover({ timeout = 3000, targets = null } = {}) {
+  const dests = [...new Set([...(targets || localBroadcasts()), '255.255.255.255'])];
   return new Promise((resolve) => {
     const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
     const found = new Map();
@@ -89,11 +120,14 @@ export function discover({ timeout = 3000, broadcast = '255.255.255.255' } = {})
         if (info) found.set(rinfo.address, summarize(rinfo.address, info));
       } catch { /* ignore non-Kasa noise */ }
     });
+    socket.on('error', () => { /* keep scanning other dests */ });
     socket.bind(() => {
       socket.setBroadcast(true);
-      socket.send(query, 0, query.length, PORT, broadcast);
+      for (const dest of dests) {
+        try { socket.send(query, 0, query.length, PORT, dest); } catch { /* skip */ }
+      }
     });
-    setTimeout(() => { socket.close(); resolve([...found.values()]); }, timeout);
+    setTimeout(() => { socket.close(); resolve({ devices: [...found.values()], scanned: dests }); }, timeout);
   });
 }
 
@@ -149,10 +183,11 @@ async function main(argv) {
   const [cmd, ip, arg] = argv;
   switch (cmd) {
     case 'discover': {
-      console.log('Scanning the LAN for Kasa devices (3s)…');
-      const devices = await discover();
+      const targets = ip ? [ip] : null; // optional: discover <broadcast-or-ip>
+      const { devices, scanned } = await discover({ targets });
+      console.log(`Scanned ${scanned.join(', ')} (3s)…`);
       if (!devices.length) {
-        console.log('No devices found. Ensure you are on the same Wi-Fi as the lights.');
+        console.log('No devices found. Ensure this machine is on the same Wi-Fi/subnet as the lights.');
         console.log('(If the Kasa app sees them but this does not, they may be Tapo/KLAP.)');
         return;
       }

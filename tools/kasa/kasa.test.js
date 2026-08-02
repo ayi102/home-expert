@@ -2,7 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   encrypt, decrypt, encryptWithHeader, decryptWithHeader, isBulb,
+  ipToInt, intToIp, broadcastAddr,
 } from './kasa.mjs';
+
+test('IPv4 int round-trip and subnet-directed broadcast', () => {
+  assert.equal(intToIp(ipToInt('192.168.4.74')), '192.168.4.74');
+  assert.equal(broadcastAddr('192.168.4.74', '255.255.255.0'), '192.168.4.255');
+  assert.equal(broadcastAddr('10.0.1.5', '255.255.0.0'), '10.0.255.255');
+  assert.equal(broadcastAddr('172.16.5.9', '255.255.255.128'), '172.16.5.127');
+});
 
 test('encrypt uses the 0xAB autokey — known first byte', () => {
   // '{' = 0x7B, 0x7B ^ 0xAB = 0xD0
