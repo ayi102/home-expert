@@ -5,6 +5,7 @@ import org.json.JSONObject
 /** A discovered Kasa device and its current state. */
 data class KasaDevice(
     val ip: String,
+    val deviceId: String,
     val alias: String,
     val model: String,
     val isBulb: Boolean,
@@ -23,6 +24,8 @@ data class KasaDevice(
             }
             return KasaDevice(
                 ip = ip,
+                // Stable per-device id (survives DHCP changes); fall back to IP.
+                deviceId = info.optString("deviceId", "").ifBlank { ip },
                 alias = info.optString("alias", "(unnamed)"),
                 model = info.optString("model", "?"),
                 isBulb = isBulb,
