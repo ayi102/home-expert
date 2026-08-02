@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Exact alarms to fire the adhan precisely at each prayer time. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <!-- Networking: cloud sync, calendars, and (later) Kasa LAN control + discovery. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -50,6 +54,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Fires the adhan at each prayer time. -->
+        <receiver
+            android:name=".adhan.AdhanReceiver"
+            android:exported="false" />
 
         <!-- Relaunches the dashboard after a reboot. -->
         <receiver

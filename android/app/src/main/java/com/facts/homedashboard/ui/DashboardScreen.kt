@@ -44,8 +44,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.facts.homedashboard.adhan.AdhanScheduler
 import com.facts.homedashboard.location.LocationHelper
 import com.facts.homedashboard.prayer.PrayerSettings
+import com.facts.homedashboard.prayer.SettingsStore
 import com.facts.homedashboard.util.AppLauncher
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
@@ -110,18 +112,21 @@ private fun rememberPrayerSettings(): PrayerSettings {
     var settings by remember {
         mutableStateOf(PrayerSettings.PLACEHOLDER.copy(timeZoneId = ZoneId.systemDefault().id))
     }
+    // On a new fix: update the UI, persist it, and re-arm the adhan alarm.
+    val onFix: (Double, Double) -> Unit = { lat, lng ->
+        val updated = settings.copy(latitude = lat, longitude = lng)
+        settings = updated
+        SettingsStore.save(context, updated)
+        AdhanScheduler.scheduleNext(context)
+    }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) LocationHelper.requestLocation(context) { lat, lng ->
-            settings = settings.copy(latitude = lat, longitude = lng)
-        }
+        if (granted) LocationHelper.requestLocation(context, onFix)
     }
     LaunchedEffect(Unit) {
         if (LocationHelper.hasPermission(context)) {
-            LocationHelper.requestLocation(context) { lat, lng ->
-                settings = settings.copy(latitude = lat, longitude = lng)
-            }
+            LocationHelper.requestLocation(context, onFix)
         } else {
             launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
