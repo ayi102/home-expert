@@ -1,16 +1,21 @@
 package com.facts.homedashboard.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -37,13 +43,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.facts.homedashboard.prayer.SettingsStore
+import com.facts.homedashboard.weather.HourEntry
 import com.facts.homedashboard.weather.WeatherClient
 import com.facts.homedashboard.weather.WeatherData
 import com.facts.homedashboard.weather.WeatherDay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 private val WeatherAccent = Color(0xFF4FC3F7)
+private val RainBlue = Color(0xFF29B6F6)
+private val Track = Color(0xFF1E2530)
 
 @Composable
 fun WeatherScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -52,6 +62,7 @@ fun WeatherScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var data by remember { mutableStateOf<WeatherData?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     fun refresh() {
         scope.launch {
@@ -92,9 +103,12 @@ fun WeatherScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text(error!!, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             current != null -> {
+                val selected = selectedDate ?: current.days.first().date
                 CurrentWeather(current)
-                Spacer(Modifier.height(24.dp))
-                Forecast(current.days)
+                Spacer(Modifier.height(20.dp))
+                Forecast(current.days, selected) { selectedDate = it }
+                Spacer(Modifier.height(20.dp))
+                HourlyRain(current.hours, selected)
             }
         }
     }
@@ -111,17 +125,13 @@ private fun CurrentWeather(data: WeatherData) {
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Brush.horizontalGradient(listOf(WeatherAccent.copy(alpha = 0.20f), Color(0xFF161B22))))
-                .padding(28.dp),
+                .padding(24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(WeatherClient.emoji(data.now.code), fontSize = 84.sp)
-            Spacer(Modifier.width(28.dp))
+            Text(WeatherClient.emoji(data.now.code), fontSize = 72.sp)
+            Spacer(Modifier.width(24.dp))
             Column {
-                Text(
-                    "${data.now.tempF}°",
-                    fontSize = 76.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                Text("${data.now.tempF}°", fontSize = 68.sp, fontWeight = FontWeight.Bold)
                 Text(
                     WeatherClient.label(data.now.code),
                     style = MaterialTheme.typography.titleLarge,
@@ -141,48 +151,120 @@ private fun CurrentWeather(data: WeatherData) {
 @Composable
 private fun Detail(label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "$label  ",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text("$label  ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun Forecast(days: List<WeatherDay>) {
+private fun Forecast(days: List<WeatherDay>, selected: LocalDate, onSelect: (LocalDate) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         days.forEachIndexed { i, day ->
+            val isSelected = day.date == selected
             Card(
-                modifier = Modifier.weight(1f),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF161B22)),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onSelect(day.date) }
+                    .then(
+                        if (isSelected) Modifier.border(2.dp, WeatherAccent, RoundedCornerShape(18.dp))
+                        else Modifier
+                    ),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSelected) WeatherAccent.copy(alpha = 0.16f) else Color(0xFF161B22)
+                ),
                 shape = RoundedCornerShape(18.dp),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 18.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
                         if (i == 0) "Today" else day.date.format(DAY_FMT),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (i == 0) WeatherAccent else MaterialTheme.colorScheme.onSurface,
+                        color = if (isSelected) WeatherAccent else MaterialTheme.colorScheme.onSurface,
                     )
-                    Text(WeatherClient.emoji(day.code), fontSize = 34.sp)
-                    Text(
-                        "${day.maxF}°  ${day.minF}°",
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    Text(WeatherClient.emoji(day.code), fontSize = 30.sp)
+                    Text("${day.maxF}°  ${day.minF}°", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun HourlyRain(hours: List<HourEntry>, date: LocalDate) {
+    val dayHours = hours.filter { it.time.toLocalDate() == date }
+    if (dayHours.isEmpty()) return
+    val peak = dayHours.maxByOrNull { it.rainChance }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "Rain by hour · ${if (date == LocalDate.now()) "Today" else date.format(FULL_FMT)}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.width(14.dp))
+            if (peak != null && peak.rainChance > 0) {
+                Text(
+                    "peak ${peak.rainChance}% around ${hourLabel(peak)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RainBlue,
+                )
+            } else {
+                Text("no rain expected", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(dayHours) { h -> HourCell(h) }
+        }
+    }
+}
+
+@Composable
+private fun HourCell(h: HourEntry) {
+    Column(
+        modifier = Modifier.width(50.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            "${h.rainChance}%",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (h.rainChance > 0) RainBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (h.rainChance >= 50) FontWeight.Bold else FontWeight.Normal,
+        )
+        // Rain-chance bar (fills from the bottom).
+        Box(
+            modifier = Modifier
+                .height(90.dp)
+                .width(16.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Track),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(h.rainChance / 100f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(RainBlue)
+            )
+        }
+        Text(hourLabel(h), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${h.tempF}°", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun hourLabel(h: HourEntry): String {
+    val hour = h.time.hour
+    val h12 = ((hour + 11) % 12) + 1
+    return "$h12${if (hour < 12) "a" else "p"}"
 }
 
 @Composable
@@ -191,3 +273,4 @@ private fun Center(content: @Composable () -> Unit) {
 }
 
 private val DAY_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE")
+private val FULL_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")

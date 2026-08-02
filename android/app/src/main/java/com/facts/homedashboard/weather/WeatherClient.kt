@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
 data class WeatherNow(
@@ -23,7 +24,19 @@ data class WeatherDay(
     val minF: Int,
 )
 
-data class WeatherData(val now: WeatherNow, val days: List<WeatherDay>)
+data class HourEntry(
+    val time: LocalDateTime,
+    val tempF: Int,
+    val rainChance: Int,   // precipitation probability %
+    val precipIn: Double,  // inches in that hour
+    val code: Int,
+)
+
+data class WeatherData(
+    val now: WeatherNow,
+    val days: List<WeatherDay>,
+    val hours: List<HourEntry>,
+)
 
 /**
  * Weather via Open-Meteo — free, no API key, no account. Uses the tablet's
@@ -36,8 +49,10 @@ object WeatherClient {
             "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=$lat&longitude=$lng" +
                 "&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m" +
+                "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code" +
                 "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-                "&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=6"
+                "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch" +
+                "&timezone=auto&forecast_days=6"
         )
         val conn = (url.openConnection() as HttpURLConnection).apply {
             connectTimeout = 8000
@@ -68,7 +83,24 @@ object WeatherClient {
                 minF = mins.getDouble(i).roundToInt(),
             )
         }
-        WeatherData(now, days)
+
+        val hourly = json.getJSONObject("hourly")
+        val hTimes = hourly.getJSONArray("time")
+        val hTemp = hourly.getJSONArray("temperature_2m")
+        val hProb = hourly.getJSONArray("precipitation_probability")
+        val hPrecip = hourly.getJSONArray("precipitation")
+        val hCode = hourly.getJSONArray("weather_code")
+        val hours = (0 until hTimes.length()).map { i ->
+            HourEntry(
+                time = LocalDateTime.parse(hTimes.getString(i)),
+                tempF = hTemp.getDouble(i).roundToInt(),
+                rainChance = if (hProb.isNull(i)) 0 else hProb.getInt(i),
+                precipIn = if (hPrecip.isNull(i)) 0.0 else hPrecip.getDouble(i),
+                code = hCode.getInt(i),
+            )
+        }
+
+        WeatherData(now, days, hours)
     }
 
     /** WMO weather-code → short description. */
