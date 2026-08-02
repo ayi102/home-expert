@@ -3,7 +3,8 @@
 A wall-mounted, always-on home dashboard for the **TECLAST T65** (13.4", Android 16),
 plus a companion web page for editing from anywhere.
 
-See the full design in the plan: `~/.claude/plans/ok-i-have-a-vectorized-fog.md`.
+See the full design in [`docs/PLAN.md`](docs/PLAN.md) and current status in
+[`docs/STATUS.md`](docs/STATUS.md).
 
 ## Repo layout
 
