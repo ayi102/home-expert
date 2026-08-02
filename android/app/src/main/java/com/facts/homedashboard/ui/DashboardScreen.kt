@@ -1,9 +1,14 @@
 package com.facts.homedashboard.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,11 +30,13 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -45,6 +52,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.facts.homedashboard.adhan.AdhanScheduler
+import com.facts.homedashboard.kiosk.KioskManager
+import com.facts.homedashboard.kiosk.KioskPrefs
 import com.facts.homedashboard.location.LocationHelper
 import com.facts.homedashboard.prayer.PrayerSettings
 import com.facts.homedashboard.prayer.SettingsStore
@@ -70,20 +79,39 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
 
     val now by rememberClock()
     val settings = rememberPrayerSettings()
+    val context = LocalContext.current
+    var showMaintenance by remember { mutableStateOf(false) }
+
+    if (showMaintenance) {
+        MaintenanceDialog(
+            kioskEnabled = KioskPrefs.isEnabled(context),
+            onExit = {
+                KioskPrefs.setEnabled(context, false)
+                context.findActivity()?.let { KioskManager.exitKiosk(it) }
+                showMaintenance = false
+            },
+            onResume = {
+                KioskPrefs.setEnabled(context, true)
+                context.findActivity()?.let { KioskManager.startLockTaskIfOwner(it) }
+                showMaintenance = false
+            },
+            onDismiss = { showMaintenance = false },
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(28.dp)
     ) {
-        ClockHeader(now)
+        ClockHeader(now, onMaintenance = { showMaintenance = true })
         Spacer(Modifier.height(20.dp))
         PrayerCard(settings = settings)
         Spacer(Modifier.height(20.dp))
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 240.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            columns = GridCells.Adaptive(minSize = 260.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -134,8 +162,9 @@ private fun rememberPrayerSettings(): PrayerSettings {
     return settings
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ClockHeader(now: LocalDateTime) {
+private fun ClockHeader(now: LocalDateTime, onMaintenance: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -152,12 +181,53 @@ private fun ClockHeader(now: LocalDateTime) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        // Long-press "Home" to open maintenance (exit kiosk to install apps).
         Text(
             text = "Home",
             style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onMaintenance),
         )
     }
+}
+
+@Composable
+private fun MaintenanceDialog(
+    kioskEnabled: Boolean,
+    onExit: () -> Unit,
+    onResume: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Maintenance") },
+        text = {
+            Text(
+                if (kioskEnabled) {
+                    "Exit kiosk mode to install apps or change settings. The dashboard " +
+                        "stays open; you can switch to Play Store / Settings. Re-open this " +
+                        "and tap Resume when you're done."
+                } else {
+                    "Kiosk is currently OFF. Tap Resume to pin the dashboard back down."
+                }
+            )
+        },
+        confirmButton = {
+            if (kioskEnabled) {
+                TextButton(onClick = onExit) { Text("Exit kiosk") }
+            } else {
+                TextButton(onClick = onResume) { Text("Resume kiosk") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}
+
+/** Walks the context wrapper chain to the hosting Activity. */
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
@@ -165,7 +235,7 @@ private fun FeatureTile(tile: Tile, onClick: (() -> Unit)? = null) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(190.dp)
             .let { if (onClick != null) it.clickable { onClick() } else it },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant

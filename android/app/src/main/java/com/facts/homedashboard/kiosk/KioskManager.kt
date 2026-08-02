@@ -91,6 +91,21 @@ object KioskManager {
         }
     }
 
+    /**
+     * Temporarily leave kiosk: stop Lock Task and drop the Home override so the
+     * tablet behaves normally (to sign into Google / install apps). Device Owner
+     * itself stays set, so re-pinning later needs no re-provisioning.
+     */
+    fun exitKiosk(activity: Activity) {
+        if (isDeviceOwner(activity)) {
+            val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = ComponentName(activity, KioskAdminReceiver::class.java)
+            runCatching { dpm.clearPackagePersistentPreferredActivities(admin, activity.packageName) }
+            runCatching { dpm.setLockTaskPackages(admin, emptyArray()) }
+        }
+        runCatching { activity.stopLockTask() }
+    }
+
     private fun isInLockTask(activity: Activity): Boolean {
         val am = activity.getSystemService(Context.ACTIVITY_SERVICE)
                 as android.app.ActivityManager

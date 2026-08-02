@@ -15,6 +15,13 @@ object AdhanPlayer {
     @Volatile
     private var player: MediaPlayer? = null
 
+    val isPlaying: Boolean get() = player != null
+
+    /** Tap behaviour: start if idle, stop if already playing. */
+    fun toggle(context: Context, isFajr: Boolean = false) {
+        if (player != null) stop() else play(context, isFajr)
+    }
+
     fun play(context: Context, isFajr: Boolean = false) {
         stop()
         val ctx = context.applicationContext

@@ -1,7 +1,7 @@
 package com.facts.homedashboard.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -21,26 +19,24 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.facts.homedashboard.adhan.AdhanPlayer
-import com.facts.homedashboard.prayer.DailyPrayerTimes
 import com.facts.homedashboard.prayer.PrayerName
 import com.facts.homedashboard.prayer.PrayerSettings
 import com.facts.homedashboard.prayer.PrayerTimesEngine
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
 /**
- * Live call-to-prayer panel: the next prayer with a countdown, the Hijri date,
- * Qibla bearing, and the day's six times with the next one highlighted.
- * Location comes from [settings] (a placeholder until GPS/settings wire in).
+ * Compact call-to-prayer bar: next prayer + countdown on the left, the day's
+ * times across the middle (next one highlighted), Hijri + Qibla on the right.
+ * Kept small so the tiles below are the main navigable area. Tap to preview.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PrayerCard(
     modifier: Modifier = Modifier,
@@ -56,92 +52,72 @@ fun PrayerCard(
     val today = now.atZone(zone).toLocalDate()
     val daily = remember(settings, today) { PrayerTimesEngine.compute(settings, today) }
     val next = PrayerTimesEngine.nextPrayer(settings, now)
-    val remaining = next.remaining(now)
     val context = LocalContext.current
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { AdhanPlayer.play(context, isFajr = next.name == PrayerName.FAJR) },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
+            .combinedClickable(
+                // Tap: play/stop the next prayer's adhan. Long-press: standard adhan.
+                onClick = { AdhanPlayer.toggle(context, isFajr = next.name == PrayerName.FAJR) },
+                onLongClick = { AdhanPlayer.play(context, isFajr = false) },
+            ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Row(modifier = Modifier.padding(24.dp)) {
-            NextPrayerColumn(
-                nextName = next.name.display,
-                remaining = remaining,
-                hijri = daily.hijriLabel,
-                qibla = daily.qiblaDegrees,
-                modifier = Modifier.width(260.dp),
-            )
-            Spacer(Modifier.width(24.dp))
-            TimesColumn(daily, highlight = next.name, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun NextPrayerColumn(
-    nextName: String,
-    remaining: Duration,
-    hijri: String,
-    qibla: Double,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Text(
-            "Next  •  $nextName",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            formatCountdown(remaining),
-            style = MaterialTheme.typography.displayLarge.copy(fontSize = 56.sp),
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(hijri, style = MaterialTheme.typography.titleLarge)
-        Text(
-            "Qibla ${qibla.toInt()}° from N",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun TimesColumn(
-    daily: DailyPrayerTimes,
-    highlight: PrayerName,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (entry in daily.entries) {
-            val isNext = entry.name == highlight
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (isNext) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        else androidx.compose.ui.graphics.Color.Transparent
-                    )
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Next prayer + countdown
+            Column(modifier = Modifier.padding(end = 20.dp)) {
                 Text(
-                    entry.name.display,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (entry.name.isPrayer) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isNext) FontWeight.Bold else FontWeight.Normal,
+                    "NEXT  ·  ${next.name.display}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    daily.localTime(entry.name),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (isNext) FontWeight.Bold else FontWeight.Normal,
+                    "in ${formatCountdown(next.remaining(now))}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            // The day's times, spread across, next one highlighted
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                for (entry in daily.entries) {
+                    val isNext = entry.name == next.name
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            entry.name.display,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isNext) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            daily.localTime(entry.name),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (isNext) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    }
+                }
+            }
+
+            // Hijri + Qibla
+            Column(
+                modifier = Modifier.padding(start = 20.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                Text(daily.hijriLabel, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Qibla ${daily.qiblaDegrees.toInt()}° N",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

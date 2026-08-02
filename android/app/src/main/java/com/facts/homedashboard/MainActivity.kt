@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import com.facts.homedashboard.adhan.AdhanScheduler
 import com.facts.homedashboard.kiosk.DashboardService
 import com.facts.homedashboard.kiosk.KioskManager
+import com.facts.homedashboard.kiosk.KioskPrefs
 import com.facts.homedashboard.ui.DashboardScreen
 import com.facts.homedashboard.ui.theme.HomeDashboardTheme
 
@@ -26,7 +27,11 @@ class MainActivity : ComponentActivity() {
 
         KioskManager.keepScreenOn(this)
         KioskManager.applyImmersive(this)
-        KioskManager.startLockTaskIfOwner(this)
+        if (KioskPrefs.isEnabled(this)) {
+            KioskManager.startLockTaskIfOwner(this)
+        } else {
+            KioskManager.exitKiosk(this)
+        }
         DashboardService.start(this)
         AdhanScheduler.scheduleNext(this)
 
@@ -44,8 +49,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Re-assert immersive + pinning; they can be dropped by system dialogs.
         KioskManager.applyImmersive(this)
-        KioskManager.startLockTaskIfOwner(this)
+        if (KioskPrefs.isEnabled(this)) {
+            KioskManager.startLockTaskIfOwner(this)
+        }
     }
 }
