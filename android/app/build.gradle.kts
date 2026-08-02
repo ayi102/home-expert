@@ -56,6 +56,9 @@ dependencies {
     // Prayer-time calculation (offline). Same algorithm as the verified JS reference.
     implementation(libs.adhan)
 
+    // Coroutines for Kasa LAN I/O off the main thread.
+    implementation(libs.kotlinx.coroutines.android)
+
     debugImplementation(libs.androidx.ui.tooling)
 
     testImplementation(libs.junit)
