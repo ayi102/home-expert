@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Home Dashboard — Companion</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Home Dashboard</h1>
+    <span class="sync-note" id="syncNote">Local preview</span>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="calendar" class="active">Calendar</button>
+    <button data-tab="lists">Lists</button>
+    <button data-tab="chores">Chores</button>
+    <button data-tab="reminders">Reminders</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <main id="view"></main>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

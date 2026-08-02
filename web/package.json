@@ -1,0 +1,11 @@
+{
+  "name": "home-dashboard-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Companion web app for the Home Dashboard — edit calendar, lists, chores, reminders, and settings from anywhere.",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node server.mjs"
+  }
+}

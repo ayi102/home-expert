@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+*.iml
+
+# Node (web/)
+node_modules/
+npm-debug.log*
+
+# Android (android/) — build output & local config
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+.cxx/
+
+# Local data / secrets (never commit real keys)
+*.local
+google-services.json
+.env
