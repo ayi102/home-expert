@@ -4,12 +4,15 @@ import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.facts.homedashboard.MainActivity
 
 /**
  * Central place for the "make this behave like an appliance" behavior:
@@ -41,19 +44,48 @@ object KioskManager {
         return dpm.isDeviceOwnerApp(context.packageName)
     }
 
+    /** Media apps allowed to run inside the kiosk (Lock Task) alongside us. */
+    private val LOCK_TASK_ALLOWED = arrayOf(
+        "com.google.android.youtube",
+        "com.google.android.apps.youtube.music",
+        "com.google.android.apps.youtube.kids",
+        "com.netflix.mediaclient",
+    )
+
     /**
-     * Enter Lock Task (true kiosk) if we're Device Owner. Safe to call every
-     * onResume — it's a no-op when already locked or not provisioned.
+     * Enter Lock Task (true kiosk) if we're Device Owner. Allow-lists YouTube/
+     * Netflix so they can launch from the panel, enables a Home affordance, and
+     * makes this app the default Home so Home returns to the dashboard. Safe to
+     * call every onResume — a no-op when already locked or not provisioned.
      */
     fun startLockTaskIfOwner(activity: Activity) {
         if (!isDeviceOwner(activity)) return
         val dpm = activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(activity, KioskAdminReceiver::class.java)
-        dpm.setLockTaskPackages(admin, arrayOf(activity.packageName))
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Keep the screen from locking us out while pinned.
-            dpm.setGlobalSetting(admin, Settings.Global.STAY_ON_WHILE_PLUGGED_IN, "7")
+
+        dpm.setLockTaskPackages(admin, arrayOf(activity.packageName) + LOCK_TASK_ALLOWED)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Keep a Home button + power menu available while pinned.
+            dpm.setLockTaskFeatures(
+                admin,
+                DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+                    DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS,
+            )
         }
+
+        // Make the dashboard the default Home so Home returns here from media apps.
+        val homeFilter = IntentFilter(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+        dpm.addPersistentPreferredActivity(
+            admin, homeFilter, ComponentName(activity, MainActivity::class.java),
+        )
+
+        // Keep a powered, mounted tablet awake.
+        dpm.setGlobalSetting(admin, Settings.Global.STAY_ON_WHILE_PLUGGED_IN, "7")
+
         if (!isInLockTask(activity)) {
             activity.startLockTask()
         }

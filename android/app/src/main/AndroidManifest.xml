@@ -42,16 +42,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!--
-              To make the app the tablet's HOME (a no-provisioning kiosk fallback),
-              uncomment the filter below and pick it as the default launcher:
-
-              <intent-filter>
-                  <action android:name="android.intent.action.MAIN" />
-                  <category android:name="android.intent.category.HOME" />
-                  <category android:name="android.intent.category.DEFAULT" />
-              </intent-filter>
-            -->
+            <!-- Also act as Home so a Home press (allowed in Lock Task) returns
+                 to the dashboard after using YouTube/Netflix. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- Relaunches the dashboard after a reboot. -->

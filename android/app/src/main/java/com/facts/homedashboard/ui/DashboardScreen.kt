@@ -20,8 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.facts.homedashboard.location.LocationHelper
 import com.facts.homedashboard.prayer.PrayerSettings
+import com.facts.homedashboard.util.AppLauncher
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -85,9 +88,15 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                 .weight(1f)
         ) {
             items(dashboardTiles) { tile ->
+                val context = LocalContext.current
                 FeatureTile(
                     tile = tile,
-                    onClick = if (tile.title == "Lights") ({ showLights = true }) else null,
+                    onClick = when (tile.title) {
+                        "Lights" -> ({ showLights = true })
+                        "YouTube" -> ({ AppLauncher.launchOrNotify(context, "com.google.android.youtube", "YouTube") })
+                        "Netflix" -> ({ AppLauncher.launchOrNotify(context, "com.netflix.mediaclient", "Netflix") })
+                        else -> null
+                    },
                 )
             }
         }
@@ -196,6 +205,8 @@ private data class Tile(val title: String, val icon: ImageVector)
 
 private val dashboardTiles = listOf(
     Tile("Lights", Icons.Filled.Lightbulb),
+    Tile("YouTube", Icons.Filled.SmartDisplay),
+    Tile("Netflix", Icons.Filled.Movie),
     Tile("Weather", Icons.Filled.WbSunny),
     Tile("Calendar", Icons.Filled.CalendarMonth),
     Tile("Chores", Icons.Filled.Checklist),

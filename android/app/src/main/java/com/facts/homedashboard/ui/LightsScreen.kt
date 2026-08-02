@@ -60,8 +60,13 @@ fun LightsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    // Discover once when the screen opens.
-    androidx.compose.runtime.LaunchedEffect(Unit) { refresh() }
+    // Discover on open, then re-scan every 30s so added/removed devices sync.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            refresh()
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
